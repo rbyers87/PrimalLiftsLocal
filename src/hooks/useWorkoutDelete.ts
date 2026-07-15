@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { storage } from '../../lib/storage';
+import { storage } from '../lib/storage';  // Fixed path
 
 export function useWorkoutDelete() {
   const [deleting, setDeleting] = useState(false);
