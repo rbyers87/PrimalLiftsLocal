@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, addWeeks, isWithinInterval, parseISO, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { CheckCircle, Circle } from 'lucide-react';
