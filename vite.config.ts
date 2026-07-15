@@ -10,9 +10,23 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png'],
-      manifest: false,
+      manifest: false, // Disable built-in manifest generation
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+        globIgnores: [
+          '**/node_modules/**/*',
+          'sw.js',
+          'workbox-*.js',
+          '**/*.map'
+        ],
+        // Fix: Use the correct base path for navigation fallback
+        navigateFallback: '/PrimalLifts/index.html',
+        navigateFallbackDenylist: [
+          /^\/_/,
+          /\/api\//,
+          /^\/PrimalLifts\/$/ // Allow the root of the subdirectory
+        ],
+        // Additional runtime caching
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -26,7 +40,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /\.(png|svg|jpg|jpeg|gif)$/i,
+            urlPattern: /\.(png|svg|jpg|jpeg|gif|webp)$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'image-cache',
@@ -35,8 +49,19 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 30
               }
             }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'supabase-cache'
+            }
           }
         ]
+      },
+      // Add this to handle dev mode
+      devOptions: {
+        enabled: false
       }
     })
   ],
