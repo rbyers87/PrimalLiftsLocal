@@ -1,5 +1,14 @@
-// sw.js - Custom service worker for Primal Lifts
-const CACHE_NAME = 'primal-lifts-v3';
+// sw.js - Custom service worker with Workbox support
+// This will be enhanced by Workbox during build
+
+// Import Workbox if available
+try {
+  importScripts('/PrimalLiftsLocal/workbox-*.js');
+} catch (e) {
+  console.log('Workbox not available, using fallback');
+}
+
+const CACHE_NAME = 'primal-lifts-v4';
 const BASE_PATH = '/PrimalLiftsLocal/';
 
 // Files to cache on install
