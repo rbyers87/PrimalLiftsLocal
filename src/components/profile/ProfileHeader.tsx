@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
     import { User, Mail, Calendar } from 'lucide-react';
     import type { Profile } from '../../types/profile';
-    import { supabase } from '../../lib/supabase';
+    import { storage } from '../../lib/storage';
     
     interface ProfileHeaderProps {
       profile: Profile;
