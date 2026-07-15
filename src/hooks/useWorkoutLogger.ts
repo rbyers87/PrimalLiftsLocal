@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { storage } from '../../lib/storage';
+import { storage } from '../lib/storage';  // Fixed path
 import { useAuth } from '../contexts/AuthContext';
 import type { Workout } from '../types/workout';
 
