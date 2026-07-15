@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 import type { Workout } from '../../types/workout';
 
 export function WorkoutScheduler() {
