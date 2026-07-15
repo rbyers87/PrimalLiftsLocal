@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { storage, getCurrentUser } from '../lib/storage';
+import { initializeDatabase } from '../lib/database';
 
 interface AuthContextType {
-  user: User | null;
+  user: { id: string; email: string } | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -13,44 +13,48 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    async function init() {
+      await initializeDatabase();
+      const userData = await getCurrentUser();
+      setUser(userData);
       setLoading(false);
-    });
-
-    // Listen for changes on auth state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
+    init();
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+    // Create local profile
+    await storage.profile.update({
+      email: email,
+      profile_name: email.split('@')[0]
     });
-    if (error) throw error;
+    const userData = await getCurrentUser();
+    setUser(userData);
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
+    // Simple local authentication - just set the user
+    const existingProfile = await storage.profile.get();
+    if (!existingProfile) {
+      await storage.profile.update({
+        email: email,
+        profile_name: email.split('@')[0]
+      });
+    } else {
+      await storage.profile.update({
+        email: email
+      });
+    }
+    const userData = await getCurrentUser();
+    setUser(userData);
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    setUser(null);
   };
 
   const value = {
