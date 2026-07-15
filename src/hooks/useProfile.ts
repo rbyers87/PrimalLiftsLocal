@@ -10,16 +10,13 @@ export function useProfile() {
 
   useEffect(() => {
     async function fetchProfile() {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
+        const data = await storage.profile.get();
         setProfile(data);
       } catch (error) {
         console.error('Error fetching profile:', error);
