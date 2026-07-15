@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { storage } from '../../lib/storage';
+import { storage } from '../lib/storage';  // Fixed path
 import type { Exercise } from "../types/workout";
 
 export function useExercises() {
