@@ -1,68 +1,138 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { PWAInstallPrompt } from './components/PWAInstallPrompt';
-import Dashboard from './pages/Dashboard';
-import Workouts from './pages/Workouts';
-import Leaderboard from './pages/Leaderboard';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import MessageBoard from './pages/MessageBoard';
-import Welcome from './pages/Welcome';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import { Navbar } from './components/layout/Navbar';
-import { useAuth } from './contexts/AuthContext';
-import { initializeDatabase } from './lib/database';
+import React, { useEffect } from 'react';
+    import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+    import { AuthProvider } from './contexts/AuthContext';
+    import PrivateRoute from './components/PrivateRoute';
+    import Navbar from './components/Navbar';
+    import Login from './pages/Login';
+    import Register from './pages/Register';
+    import Dashboard from './pages/Dashboard';
+    import Profile from './pages/Profile';
+    import Settings from './pages/Settings';
+    import Workouts from './pages/Workouts';
+    import Leaderboard from './pages/Leaderboard';
+    import Welcome from './pages/Welcome';
+    import MessageBoard from './pages/MessageBoard';
 
-function AppRoutes() {
-  const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center dark:bg-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 dark:text-gray-300">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
-      <main className="container mx-auto px-4 py-8">
-        <Routes>
-          <Route path="/" element={user ? <Dashboard /> : <Welcome />} />
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-          <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
-          <Route path="/workouts" element={user ? <Workouts /> : <Navigate to="/login" />} />
-          <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
-          <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
-          <Route path="/message-board" element={user ? <MessageBoard /> : <Navigate to="/login" />} />
-        </Routes>
-      </main>
-    </div>
-  );
-}
+    function App() {
+      useEffect(() => {
+        // Apply initial theme based on system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
 
-function App() {
-  // Initialize database on app start
-  React.useEffect(() => {
-    initializeDatabase().catch(console.error);
-  }, []);
+        // Listen for changes in system theme preference
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = () => {
+          if (mediaQuery.matches) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        };
 
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-        <PWAInstallPrompt />
-      </AuthProvider>
-    </BrowserRouter>
-  );
-}
 
-export default App;
+        mediaQuery.addEventListener('change', handleChange);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        return () => {
+          mediaQuery.removeEventListener('change', handleChange);
+        };
+      }, []);
+
+
+      return (
+        <Router>
+          <AuthProvider>
+            <div className="min-h-screen dark:bg-gray-700 dark:text-gray-100 dark:bg-gray-800 dark:text-white">
+              <Navbar />
+              <div className="container mx-auto px-4 py-8 bg-gray-200">
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route
+                    path="/"
+                    element={
+                      <PrivateRoute>
+                        <Welcome />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/wod"
+                    element={
+                      <PrivateRoute>
+                        <Dashboard />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <PrivateRoute>
+                        <Profile />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <PrivateRoute>
+                        <Settings />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/workouts"
+                    element={
+                      <PrivateRoute>
+                        <Workouts />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/leaderboard"
+                    element={
+                      <PrivateRoute>
+                        <Leaderboard />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/messageboard"
+                    element={
+                      <PrivateRoute>
+                        <MessageBoard />
+                      </PrivateRoute>
+                    }
+                  />
+                </Routes>
+              </div>
+            </div>
+          </AuthProvider>
+        </Router>
+      );
+    }
+
+    export default App;
