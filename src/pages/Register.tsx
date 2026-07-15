@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Dumbbell } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { storage } from '../lib/storage';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -30,19 +30,14 @@ export default function Register() {
       await signUp(email, password);
       
       // Create profile after successful registration
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([
-          {
-            email,
-            first_name: firstName,
-            last_name: lastName,
-          }
-        ]);
-
-      if (profileError) throw profileError;
+      await storage.profile.update({
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        profile_name: firstName || email.split('@')[0]
+      });
       
-      navigate('/login');
+      navigate('/');
     } catch (error) {
       setError('Failed to create an account.');
       console.error('Registration error:', error);
