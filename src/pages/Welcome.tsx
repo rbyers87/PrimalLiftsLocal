@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { storage } from '../lib/storage';
 
 export default function Welcome() {
-  const [imageUrl, setImageUrl] = useState('/PrimalLifts/icons/placeholder-welcome.jpg');
+  const [imageUrl, setImageUrl] = useState('/PrimalLiftsLocal/icons/placeholder-welcome.jpg');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function Welcome() {
           style={{ maxWidth: '90%', height: 'auto' }}
           onError={(e) => {
             // Fallback to placeholder if image fails to load
-            (e.target as HTMLImageElement).src = '/PrimalLifts/icons/placeholder-welcome.jpg';
+            (e.target as HTMLImageElement).src = '/PrimalLiftsLocal/icons/placeholder-welcome.jpg';
           }}
         />
       )}
