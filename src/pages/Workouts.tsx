@@ -2,49 +2,50 @@ import React, { useState, useEffect } from "react";
 import { WorkoutList } from "../components/workouts/WorkoutList";
 import { WorkoutScheduler } from "../components/workouts/WorkoutScheduler";
 import { WorkoutCreator } from "../components/workouts/WorkoutCreator";
-import { supabase } from "@lib/supabase"; // Use the alias here
-
-
+import { storage } from '../lib/storage';
 
 export default function Workouts() {
   const [workouts, setWorkouts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Test connection to Supabase
+  // Test connection
   useEffect(() => {
-    const testSupabaseConnection = async () => {
+    const testConnection = async () => {
       try {
-        const { data, error } = await supabase.from('workouts').select('*');
-        if (error) {
-          console.error("Error connecting to Supabase:", error);
-        } else {
-          console.log("Fetched workouts:", data); // Logs the fetched data from the "workouts" table
-        }
+        const data = await storage.workouts.getAll();
+        console.log("Fetched workouts:", data);
       } catch (err) {
-        console.error("Error while querying Supabase:", err);
+        console.error("Error while querying storage:", err);
       }
     };
 
-    testSupabaseConnection();
-  }, []);  // Empty dependency array means this will run only once when the component mounts
+    testConnection();
+  }, []);
 
   const fetchWorkouts = async () => {
-    const { data, error } = await supabase.from("workouts").select();
-    if (error) {
-      console.error("Error fetching workouts:", error);
-    } else {
+    try {
+      const data = await storage.workouts.getAll();
       setWorkouts(data);
+    } catch (error) {
+      console.error("Error fetching workouts:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchWorkouts();
-  }, []);  // This useEffect will fetch workouts when the component mounts
+  }, []);
+
+  if (loading) {
+    return <div className="text-center py-8">Loading workouts...</div>;
+  }
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold dark:text-gray-100">Workouts</h1>
-        {/* <WorkoutCreator /> */}
+        <WorkoutCreator onWorkoutCreated={fetchWorkouts} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
