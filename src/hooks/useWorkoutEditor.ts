@@ -1,5 +1,5 @@
 import { useState } from "react";
-    import { supabase } from "../lib/supabase";
+    import { storage } from '../../lib/storage';
     import { v4 as uuidv4 } from "uuid"; // Add this import for UUID generation
     import type { Workout } from "../types/workout";
 
