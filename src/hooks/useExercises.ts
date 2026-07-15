@@ -13,17 +13,7 @@ export function useExercises() {
       setError(null);
 
       try {
-        const { data, error } = await supabase
-          .from("exercises")
-          .select("*")
-          .order("name");
-
-        if (error) {
-          setError("Failed to fetch exercises. Please try again.");
-          console.error("Error fetching exercises:", error);
-          return;
-        }
-
+        const data = await storage.exercises.getAll();
         setExercises(data || []);
       } catch (err) {
         console.error("Unexpected error fetching exercises:", err);
