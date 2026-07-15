@@ -37,22 +37,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create .env file
-        run: |
-          cat > .env << EOF
-          VITE_APP_URL=https://${{ github.repository_owner }}.github.io/PrimalLifts/
-          VITE_BASE_URL=/PrimalLifts/
-          EOF
-
       - name: Build project
         run: npm run build
-        env:
-          VITE_APP_URL: https://${{ github.repository_owner }}.github.io/PrimalLifts/
-          VITE_BASE_URL: /PrimalLifts/
 
-      - name: Copy root static assets to dist
+      - name: Copy assets to dist
         run: |
-          echo "📁 Copying root static assets to dist..."
+          echo "📁 Copying assets to dist..."
           
           # Copy manifest files
           if [ -f "manifest.json" ]; then
@@ -60,15 +50,10 @@ jobs:
             echo "✅ Copied manifest.json"
           fi
           
-          if [ -f "site.webmanifest" ]; then
-            cp site.webmanifest dist/
-            echo "✅ Copied site.webmanifest"
-          fi
-          
-          # Copy custom service worker (use our custom one)
+          # Copy custom service worker
           if [ -f "sw.js" ]; then
             cp sw.js dist/
-            echo "✅ Copied custom sw.js"
+            echo "✅ Copied sw.js"
           fi
           
           # Copy icons folder
@@ -77,19 +62,19 @@ jobs:
             echo "✅ Copied icons folder"
           fi
           
-          # Copy placeholder image if it exists
-          if [ -f "icons/placeholder-welcome.jpg" ]; then
-            cp icons/placeholder-welcome.jpg dist/
-            echo "✅ Copied placeholder image"
+          # Copy favicon
+          if [ -f "favicon.ico" ]; then
+            cp favicon.ico dist/
+            echo "✅ Copied favicon.ico"
           fi
           
-          # Fix for GitHub Pages subdirectory - copy index.html to 404.html
+          # Create 404.html for client-side routing
           if [ -f "dist/index.html" ]; then
             cp dist/index.html dist/404.html
-            echo "✅ Created 404.html for client-side routing"
+            echo "✅ Created 404.html"
           fi
           
-          # Show what's in dist for debugging
+          # Show what's in dist
           echo ""
           echo "📁 Dist contents:"
           ls -la dist/
@@ -119,6 +104,6 @@ jobs:
           echo "✅ Deployment completed!"
           echo ""
           echo "🌐 Your site will be available at:"
-          echo "   https://${{ github.repository_owner }}.github.io/PrimalLifts/"
+          echo "   https://${{ github.repository_owner }}.github.io/PrimalLiftsLocal/"
           echo ""
           echo "⏱️  It may take 1-3 minutes for GitHub Pages to update."
