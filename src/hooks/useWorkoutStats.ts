@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { storage } from '../../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
 
 interface WorkoutStats {
