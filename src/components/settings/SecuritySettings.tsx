@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 
 export function SecuritySettings() {
   const [currentPassword, setCurrentPassword] = useState('');
