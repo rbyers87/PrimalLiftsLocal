@@ -45,14 +45,19 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
       if (initialWorkoutLogId) {
         setWorkoutLogId(initialWorkoutLogId);
         try {
-          const { data, error } = await supabase
-            .from('exercise_scores')
-            .select('*')
-            .eq('workout_log_id', initialWorkoutLogId)
-            .eq('user_id', user.id);
-
-          if (error) throw error;
-          fetchedExistingScores = data || [];
+          // Get existing exercise scores from local storage
+          const scores = await storage.workoutLogExercises.getByLog(initialWorkoutLogId);
+          fetchedExistingScores = scores.map(score => ({
+            id: score.id,
+            exercise_id: score.exercise_id,
+            workout_log_id: initialWorkoutLogId,
+            user_id: user.id,
+            weight: score.weight,
+            reps: score.reps,
+            distance: score.distance,
+            time: score.time,
+            calories: score.calories,
+          }));
         } catch (error) {
           console.error('Error fetching previous exercise scores:', error);
         }
@@ -61,14 +66,18 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
         setNotes(lastLog.notes || '');
         setWorkoutLogId(lastLog.id);
         try {
-          const { data, error } = await supabase
-            .from('exercise_scores')
-            .select('*')
-            .eq('workout_log_id', lastLog.id)
-            .eq('user_id', user.id);
-
-          if (error) throw error;
-          fetchedExistingScores = data || [];
+          const scores = await storage.workoutLogExercises.getByLog(lastLog.id);
+          fetchedExistingScores = scores.map(score => ({
+            id: score.id,
+            exercise_id: score.exercise_id,
+            workout_log_id: lastLog.id,
+            user_id: user.id,
+            weight: score.weight,
+            reps: score.reps,
+            distance: score.distance,
+            time: score.time,
+            calories: score.calories,
+          }));
         } catch (error) {
           console.error('Error fetching previous exercise scores:', error);
         }
@@ -89,7 +98,7 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
           return {
             exercise_id: exercise.exercise_id,
             sets: Array(exercise.sets).fill({
-              weight: null,
+              weight: 0,
               reps: exercise.reps,
               distance: exercise.distance,
               time: formatTime(exercise.time),
@@ -151,8 +160,8 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
         newLogs[exerciseIndex] = {
           ...newLogs[exerciseIndex],
           sets: [...newLogs[exerciseIndex].sets, {
-            id: uuidv4(), // Generate a new UUID for the new set
-            weight: null,
+            id: uuidv4(),
+            weight: 0,
             reps: exercise.reps,
             distance: exercise.distance,
             time: formatTime(exercise.time),
@@ -173,15 +182,11 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
   };
 
   const calculateScore = (exercise: WorkoutExercise, log: ExerciseLog, workoutType: string) => {
-    // Calculate score based on exercise type
-    if (exercise.exercise.name === 'Run') {
-      // Score for Run is based on total distance
+    if (exercise.exercise?.name === 'Run') {
       return log.sets.reduce((total, set) => total + (set.distance || 0), 0);
-    } else if (exercise.exercise.name === 'Assault Bike') {
-      // Score for Assault Bike is based on total calories
+    } else if (exercise.exercise?.name === 'Assault Bike') {
       return log.sets.reduce((total, set) => total + (set.calories || 0), 0);
     } else if (workoutType === 'weight training') {
-      // Score for weight training workouts is based on the heaviest weight used
       let maxWeight = 0;
       log.sets.forEach(set => {
         if (set.weight > maxWeight) {
@@ -190,7 +195,6 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
       });
       return maxWeight;
     } else {
-      // Score for other exercises is based on the heaviest weight used
       let maxWeight = 0;
       log.sets.forEach(set => {
         if (set.weight > maxWeight) {
@@ -202,11 +206,11 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
   };
 
   const calculateTotal = (exercise: WorkoutExercise, log: ExerciseLog) => {
-    if (exercise.exercise.name === 'Run') {
+    if (exercise.exercise?.name === 'Run') {
       return log.sets.reduce((total, set) => {
         return total + (set.distance || 0);
       }, 0);
-    } else if (exercise.exercise.name === 'Assault Bike') {
+    } else if (exercise.exercise?.name === 'Assault Bike') {
       return log.sets.reduce((total, set) => {
         return total + (set.calories || 0);
       }, 0);
@@ -219,7 +223,7 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
   };
 
   const handleCancel = () => {
-    onClose(); // Close the modal without saving changes
+    onClose();
   };
 
   const handleSubmit = async () => {
@@ -242,168 +246,81 @@ export function WorkoutLogger({ workout, onClose, previousLogs, workoutLogId: in
         return total + (exercise ? calculateTotal(exercise, log) : 0);
       }, 0);
 
-      // Define a variable to hold the current workout log ID
       let currentWorkoutLogId = workoutLogId;
 
-      // Check if we're updating an existing workout log or creating a new one
       if (currentWorkoutLogId) {
         // Update existing workout log
-        const { data, error: updateError } = await supabase
-          .from('workout_logs')
-          .update({
-            notes,
-            score,
-            total,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', currentWorkoutLogId)
-          .select()
-          .maybeSingle();
-
-        if (updateError) {
-          console.error('Error updating workout log:', updateError);
-          throw updateError;
-        }
-
-        if (!data) {
-          console.warn('No workout log found with that ID to update.');
-          // Instead of throwing an error, we'll create a new workout log
-          const { data: newData, error: createError } = await supabase
-            .from('workout_logs')
-            .insert({
-              user_id: user.id,
-              workout_id: workout.id,
-              notes,
-              completed_at: new Date().toISOString(),
-              score,
-              total,
-            })
-            .select()
-            .maybeSingle();
-
-          if (createError) {
-            console.error('Error creating workout log after failed update:', createError);
-            throw createError;
-          }
-
-          if (!newData) {
-            console.error('Failed to create new workout log after failed update');
-            throw new Error('Failed to create or update workout log');
-          }
-
-          // Update to use the newly created workout log ID
-          currentWorkoutLogId = newData.id;
-          setWorkoutLogId(currentWorkoutLogId);
-        }
-        // We don't need to update currentWorkoutLogId if the update succeeded
+        await storage.workoutLogs.add({
+          workout_id: workout.id,
+          user_id: user.id,
+          notes,
+          total_score: score,
+          completed_at: new Date().toISOString(),
+          workout_name: workout.name,
+        });
       } else {
         // Create new workout log
-        const { data, error: workoutError } = await supabase
-          .from('workout_logs')
-          .insert({
-            user_id: user.id,
-            workout_id: workout.id,
-            notes,
-            completed_at: new Date().toISOString(),
-            score,
-            total,
-          })
-          .select()
-          .maybeSingle();
-
-        if (workoutError) {
-          console.error('Error creating workout log:', workoutError);
-          throw workoutError;
-        }
-
-        if (!data) {
-          console.warn('Workout log creation returned no data.');
-          throw new Error('Failed to create workout log');
-        }
-
-        // Update the current workout log ID with the new one
-        currentWorkoutLogId = data.id;
+        const newLog = await storage.workoutLogs.add({
+          workout_id: workout.id,
+          user_id: user.id,
+          notes,
+          total_score: score,
+          completed_at: new Date().toISOString(),
+          workout_name: workout.name,
+        });
+        currentWorkoutLogId = newLog.id;
         setWorkoutLogId(currentWorkoutLogId);
       }
 
-      // Make sure we have a valid workout log ID at this point
-      if (!currentWorkoutLogId) {
-        throw new Error('Missing workout log ID');
+      // Delete old exercise scores if updating
+      if (currentWorkoutLogId) {
+        await storage.workoutLogExercises.deleteByLog(currentWorkoutLogId);
       }
 
-      // Prepare exercise scores for upsert
-      const exerciseScoresToUpsert = logs.flatMap((log, index) => {
+      // Prepare exercise scores for insertion
+      const exerciseScoresToInsert = logs.flatMap((log, index) => {
         const exercise = workout.workout_exercises?.[index];
         if (!exercise) return [];
-        return log.sets.map((set) => {
-          return {
-            id: set.id || uuidv4(),
-            user_id: user.id,
-            workout_log_id: currentWorkoutLogId, // Use the current workout log ID
-            exercise_id: log.exercise_id,
-            weight: set.weight,
-            reps: set.reps,
-            distance: set.distance,
-            time: set.time,
-            calories: set.calories,
-          };
-        });
+        return log.sets.map((set) => ({
+          log_id: currentWorkoutLogId!,
+          exercise_id: log.exercise_id,
+          weight: set.weight || 0,
+          reps: set.reps,
+          distance: set.distance,
+          time: set.time ? String(set.time) : '',
+          notes: '',
+          exercise_name: exercise.exercise?.name || '',
+        }));
       });
 
-// Upsert exercise scores
-const { error: upsertError } = await supabase
-  .from('exercise_scores')
-  .upsert(exerciseScoresToUpsert, { onConflict: 'id' });
-
-if (upsertError) {
-  console.error('Error upserting exercise scores:', upsertError);
-  throw upsertError;
-}
-
-
-      // Handle deleted sets
-      if (currentWorkoutLogId) {
-        const existingScoreIds = existingScores.map(es => es.id);
-        const currentScoreIds = exerciseScoresToUpsert.map(es => es.id).filter(id => id);
-        const scoresToDelete = existingScoreIds.filter(id => !currentScoreIds.includes(id));
-
-        if (scoresToDelete.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('exercise_scores')
-            .delete()
-            .in('id', scoresToDelete);
-
-          if (deleteError) throw deleteError;
-        }
+      if (exerciseScoresToInsert.length > 0) {
+        await storage.workoutLogExercises.addBulk(exerciseScoresToInsert);
       }
 
-      // Get completed exercises for the week in the format WeeklyExercises expects
+      // Get completed exercises for the week
       if (user) {
         const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
         const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
-        const { data: completedData, error: completedError } = await supabase
-          .from('workout_logs')
-          .select(`
-            completed_at,
-            workout:workouts!inner (
-              workout_exercises!inner (
-                exercise_id
-              )
-            )
-          `)
-          .eq('user_id', user.id)
-          .gte('completed_at', weekStart)
-          .lte('completed_at', weekEnd);
+        // Get all logs for the user
+        const allLogs = await storage.workoutLogs.getByUser(user.id);
+        
+        // Filter logs within the week
+        const weekLogs = allLogs.filter(log => {
+          const logDate = log.completed_at.split('T')[0];
+          return logDate >= weekStart && logDate <= weekEnd;
+        });
 
-        if (completedError) throw completedError;
-
-        const formattedCompletedExercises = completedData?.flatMap(log =>
-          log.workout.workout_exercises.map(ex => ({
-            exercise_id: ex.exercise_id,
-            completed_at: log.completed_at,
-          }))
-        ) || [];
+        const formattedCompletedExercises: any[] = [];
+        for (const log of weekLogs) {
+          const exercises = await storage.workoutLogExercises.getByLog(log.id);
+          for (const ex of exercises) {
+            formattedCompletedExercises.push({
+              exercise_id: ex.exercise_id,
+              completed_at: log.completed_at,
+            });
+          }
+        }
 
         onClose(formattedCompletedExercises);
       } else {
@@ -413,7 +330,7 @@ if (upsertError) {
       alert('Workout logged successfully!');
     } catch (error) {
       console.error('Error logging workout:', error);
-      alert(`Failed to log workout: ${error.message || 'Unknown error'}`);
+      alert(`Failed to log workout: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -430,12 +347,12 @@ if (upsertError) {
           {workout.workout_exercises?.map((exercise, exerciseIndex) => (
             <div key={exercise.id} className="border rounded-md p-4">
               <h3 className="font-medium text-lg mb-3">
-                {exercise.exercise.name}
+                {exercise.exercise?.name}
               </h3>
 
               <ExercisePercentages 
                 exerciseId={exercise.exercise_id}
-                exerciseName={exercise.exercise.name}
+                exerciseName={exercise.exercise?.name || ''}
               />
 
               <div className="space-y-3 mt-4">
@@ -444,144 +361,143 @@ if (upsertError) {
                     <div className="text-sm text-gray-500">
                       Set {setIndex + 1}
                     </div>
-                    {
-                      exercise.exercise.name === 'Run' ? (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium dark:text-gray-300">Time (HH:MM)</label>
-                            <input
-                              type="text"
-                              value={logs[exerciseIndex].sets[setIndex].time || '00:00'}
-                              onChange={(e) =>
-                                handleSetChange(exerciseIndex, setIndex, 'time', e.target.value)
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="HH:MM"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium dark:text-gray-300">Distance (meters)</label>
-                            <input
-                              type="number"
-                              value={logs[exerciseIndex].sets[setIndex].distance}
-                              onChange={(e) =>
-                                handleSetChange(
-                                  exerciseIndex,
-                                  setIndex,
-                                  'distance',
-                                  Number(e.target.value)
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="Distance (meters)"
-                            />
-                          </div>
-                        </>
-                      ) : exercise.exercise.name === 'Assault Bike' ? (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium dark:text-gray-300">Time (HH:MM)</label>
-                            <input
-                              type="text"
-                              value={logs[exerciseIndex].sets[setIndex].time || '00:00'}
-                              onChange={(e) =>
-                                handleSetChange(exerciseIndex, setIndex, 'time', e.target.value)
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="HH:MM"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium dark:text-gray-300">Calories</label>
-                            <input
-                              type="number"
-                              value={logs[exerciseIndex].sets[setIndex].calories}
-                              onChange={(e) =>
-                                handleSetChange(
-                                  exerciseIndex,
-                                  setIndex,
-                                  'calories',
-                                  Number(e.target.value)
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="Calories"
-                            />
-                          </div>
-                        </>
-                      ) : exercise.exercise.name === 'Rower' ? (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium dark:text-gray-300">Distance (meters)</label>
-                            <input
-                              type="number"
-                              value={logs[exerciseIndex].sets[setIndex].distance}
-                              onChange={(e) =>
-                                handleSetChange(
-                                  exerciseIndex,
-                                  setIndex,
-                                  'distance',
-                                  Number(e.target.value)
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="Distance (meters)"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium dark:text-gray-300">Calories</label>
-                            <input
-                              type="number"
-                              value={logs[exerciseIndex].sets[setIndex].calories}
-                              onChange={(e) =>
-                                handleSetChange(
-                                  exerciseIndex,
-                                  setIndex,
-                                  'calories',
-                                  Number(e.target.value)
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="Calories"
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            <input
-                              type="number"
-                              value={logs[exerciseIndex].sets[setIndex].weight || ''}
-                              onChange={(e) =>
-                                handleSetChange(
-                                  exerciseIndex,
-                                  setIndex,
-                                  'weight',
-                                  e.target.value ? Number(e.target.value) : null
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="Weight"
-                            />
-                          </div>
-                          <div>
-                            <input
-                              type="number"
-                              value={logs[exerciseIndex].sets[setIndex].reps}
-                              onChange={(e) =>
-                                handleSetChange(
-                                  exerciseIndex,
-                                  setIndex,
-                                  'reps',
-                                  Number(e.target.value)
-                                )
-                              }
-                              className="w-full rounded-md border-gray-300"
-                              placeholder="Reps"
-                            />
-                          </div>
-                        </>
-                      )}
+                    {exercise.exercise?.name === 'Run' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium dark:text-gray-300">Time (HH:MM)</label>
+                          <input
+                            type="text"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.time || '00:00'}
+                            onChange={(e) =>
+                              handleSetChange(exerciseIndex, setIndex, 'time', e.target.value)
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="HH:MM"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium dark:text-gray-300">Distance (meters)</label>
+                          <input
+                            type="number"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.distance || ''}
+                            onChange={(e) =>
+                              handleSetChange(
+                                exerciseIndex,
+                                setIndex,
+                                'distance',
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="Distance (meters)"
+                          />
+                        </div>
+                      </>
+                    ) : exercise.exercise?.name === 'Assault Bike' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium dark:text-gray-300">Time (HH:MM)</label>
+                          <input
+                            type="text"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.time || '00:00'}
+                            onChange={(e) =>
+                              handleSetChange(exerciseIndex, setIndex, 'time', e.target.value)
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="HH:MM"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium dark:text-gray-300">Calories</label>
+                          <input
+                            type="number"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.calories || ''}
+                            onChange={(e) =>
+                              handleSetChange(
+                                exerciseIndex,
+                                setIndex,
+                                'calories',
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="Calories"
+                          />
+                        </div>
+                      </>
+                    ) : exercise.exercise?.name === 'Rower' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium dark:text-gray-300">Distance (meters)</label>
+                          <input
+                            type="number"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.distance || ''}
+                            onChange={(e) =>
+                              handleSetChange(
+                                exerciseIndex,
+                                setIndex,
+                                'distance',
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="Distance (meters)"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium dark:text-gray-300">Calories</label>
+                          <input
+                            type="number"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.calories || ''}
+                            onChange={(e) =>
+                              handleSetChange(
+                                exerciseIndex,
+                                setIndex,
+                                'calories',
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="Calories"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <input
+                            type="number"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.weight || ''}
+                            onChange={(e) =>
+                              handleSetChange(
+                                exerciseIndex,
+                                setIndex,
+                                'weight',
+                                e.target.value ? Number(e.target.value) : 0
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="Weight"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            value={logs[exerciseIndex]?.sets[setIndex]?.reps || ''}
+                            onChange={(e) =>
+                              handleSetChange(
+                                exerciseIndex,
+                                setIndex,
+                                'reps',
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
+                            placeholder="Reps"
+                          />
+                        </div>
+                      </>
+                    )}
                     <button
                       onClick={() => handleDeleteSet(exerciseIndex, setIndex)}
                       className="text-red-600 hover:text-red-700"
@@ -607,7 +523,7 @@ if (upsertError) {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-md border-gray-300"
+              className="w-full rounded-md border-gray-300 dark:bg-gray-600 dark:text-gray-100"
               rows={3}
             />
           </div>
