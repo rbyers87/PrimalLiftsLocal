@@ -48,10 +48,10 @@ export function useWorkoutLogger() {
       const exercise = workout.workout_exercises?.[index];
       if (!exercise) return total;
       
-      if (exercise.exercise.name === 'Run') {
+      if (exercise.exercise?.name === 'Run') {
         // Score for Run is based on total distance
         return total + log.sets.reduce((setTotal, set) => setTotal + (set.distance || 0), 0);
-      } else if (exercise.exercise.name === 'Assault Bike') {
+      } else if (exercise.exercise?.name === 'Assault Bike') {
         // Score for Assault Bike is based on total calories
         return total + log.sets.reduce((setTotal, set) => setTotal + (set.calories || 0), 0);
       } else if (workout.type === 'weight training') {
@@ -77,45 +77,37 @@ export function useWorkoutLogger() {
       throw new Error('User must be logged in to log a workout');
     }
 
+    setLogging(true);
+
     try {
       // Calculate total score
       const totalScore = calculateTotalScore(logs, workout);
 
       // Create workout log
-      const { data: workoutLog, error: workoutError } = await supabase
-        .from('workout_logs')
-        .insert({
-          user_id: user.id,
-          workout_id: workout.id,
-          notes,
-          score: totalScore,
-          total: totalScore,
-          completed_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (workoutError) throw workoutError;
+      const workoutLog = await storage.workoutLogs.add({
+        workout_id: workout.id,
+        user_id: user.id,
+        notes,
+        total_score: totalScore,
+        completed_at: new Date().toISOString(),
+        workout_name: workout.name,
+      });
 
       // Create exercise scores
       const exerciseScores = logs.flatMap((log) =>
         log.sets.map((set) => ({
-          user_id: user.id,
-          workout_log_id: workoutLog.id,
+          log_id: workoutLog.id,
           exercise_id: log.exercise_id,
-          weight: set.weight,
+          weight: set.weight || 0,
           reps: set.reps,
           distance: set.distance,
-          time: set.time,
-          calories: set.calories,
+          time: set.time ? String(set.time) : '',
+          notes: '',
+          exercise_name: '', // Will be filled in by the component
         }))
       );
 
-      const { error: scoresError } = await supabase
-        .from('exercise_scores')
-        .insert(exerciseScores);
-
-      if (scoresError) throw scoresError;
+      await storage.workoutLogExercises.addBulk(exerciseScores);
 
       return workoutLog;
     } catch (error) {
@@ -136,74 +128,42 @@ export function useWorkoutLogger() {
       throw new Error('User must be logged in to update a workout');
     }
 
+    setLogging(true);
+
     try {
       // Calculate total score
       const totalScore = calculateTotalScore(logs, workout);
 
       // Update the workout log
-      const { data: workoutLog, error: workoutError } = await supabase
-        .from('workout_logs')
-        .update({
-          notes,
-          score: totalScore,
-          total: totalScore,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', workoutLogId)
-        .eq('user_id', user.id)  // Safety check
-        .select()
-        .single();
+      await storage.workoutLogs.add({
+        workout_id: workout.id,
+        user_id: user.id,
+        notes,
+        total_score: totalScore,
+        completed_at: new Date().toISOString(),
+        workout_name: workout.name,
+      });
 
-      if (workoutError) throw workoutError;
+      // Delete old exercise scores
+      await storage.workoutLogExercises.deleteByLog(workoutLogId);
 
-      // First, fetch existing exercise scores
-      const { data: existingScores, error: fetchError } = await supabase
-        .from('exercise_scores')
-        .select('id')
-        .eq('workout_log_id', workoutLogId);
-
-      if (fetchError) throw fetchError;
-
-      // Create a map of existing score IDs
-      const existingScoreIds = new Set((existingScores || []).map(score => score.id));
-
-      // Prepare scores for upsert with IDs for existing scores
+      // Create new exercise scores
       const exerciseScores = logs.flatMap((log) =>
         log.sets.map((set) => ({
-          id: set.id, // Use existing ID if available
-          user_id: user.id,
-          workout_log_id: workoutLogId,
+          log_id: workoutLogId,
           exercise_id: log.exercise_id,
-          weight: set.weight,
+          weight: set.weight || 0,
           reps: set.reps,
           distance: set.distance,
-          time: set.time,
-          calories: set.calories,
+          time: set.time ? String(set.time) : '',
+          notes: '',
+          exercise_name: '',
         }))
       );
 
-      // Find scores to delete (IDs in existingScoreIds but not in exerciseScores)
-      const currentScoreIds = new Set(exerciseScores.filter(score => score.id).map(score => score.id));
-      const scoreIdsToDelete = Array.from(existingScoreIds).filter(id => !currentScoreIds.has(id));
+      await storage.workoutLogExercises.addBulk(exerciseScores);
 
-      // Delete scores that no longer exist
-      if (scoreIdsToDelete.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('exercise_scores')
-          .delete()
-          .in('id', scoreIdsToDelete);
-
-        if (deleteError) throw deleteError;
-      }
-
-      // Upsert the scores (update existing ones, insert new ones)
-      const { error: upsertError } = await supabase
-        .from('exercise_scores')
-        .upsert(exerciseScores, { onConflict: 'id' });
-
-      if (upsertError) throw upsertError;
-
-      return workoutLog;
+      return { id: workoutLogId };
     } catch (error) {
       console.error('Error updating workout log:', error);
       throw error;
