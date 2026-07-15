@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 import { Star } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
