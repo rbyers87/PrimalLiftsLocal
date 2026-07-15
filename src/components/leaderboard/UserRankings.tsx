@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 import { Trophy, Medal, Heart } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { format, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
