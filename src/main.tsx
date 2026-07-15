@@ -1,42 +1,27 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
 import './index.css';
 
-// Detect if the app is running in standalone mode (PWA) and apply dark mode if needed
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-
-if (isStandalone) {
-  // Apply the `dark` class if the system prefers dark mode
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.classList.add('dark');
+// Only register service worker in production
+if (import.meta.env.PROD) {
+  // Register service worker manually
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/PrimalLifts/sw.js')
+        .then(registration => {
+          console.log('SW registered:', registration);
+        })
+        .catch(error => {
+          console.log('SW registration failed:', error);
+        });
+    });
   }
-
-  // Listen for system theme changes and update the `dark` class accordingly
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (e.matches) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  });
 }
 
-// Render the React app
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>
+  </React.StrictMode>
 );
-
-// service worker logs
-
-if ('serviceWorker' in navigator) {
-  console.log('Service Worker is supported');
-  
-  navigator.serviceWorker.ready.then(registration => {
-    console.log('Service Worker Registered:', registration);
-  }).catch(error => {
-    console.error('Service Worker Registration Error:', error);
-  });
-}
