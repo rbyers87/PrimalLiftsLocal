@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { storage } from '../../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
 import type { Workout } from '../types/workout';
 
