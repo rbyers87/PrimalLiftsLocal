@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { storage } from '../../lib/storage';
 import type { Exercise } from "../types/workout";
 
 export function useExercises() {
