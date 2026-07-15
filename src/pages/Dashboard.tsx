@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { DateSelector } from '../components/dashboard/DateSelector';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import type { Workout, WorkoutExercise } from '../types/workout';
 import { WeeklyExercises } from '../components/weekly/WeeklyExercises';
 import { RecentWorkouts } from '../components/dashboard/RecentWorkouts';
-import { Dumbbell, Calendar, Clock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Dumbbell } from 'lucide-react';
 import { WorkoutLogger } from '../components/workouts/WorkoutLogger';
 import { WorkoutEditor } from '../components/workouts/WorkoutEditor';
 import { parseISO } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import { storage } from '../lib/storage';
 
 interface CompletedExercise {
   exercise_id: string;
@@ -23,7 +22,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [completedExercises, setCompletedExercises] = useState<CompletedExercise[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0); // Track re-fetching
+  const [refreshKey, setRefreshKey] = useState(0);
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [isLogging, setIsLogging] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -35,24 +34,10 @@ export default function Dashboard() {
     async function fetchWOD() {
       try {
         const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-
-        const { data, error } = await supabase
-          .from('workouts')
-          .select(`
-            *,
-            workout_exercises (
-              *,
-              exercise:exercises (*)
-            )
-          `)
-          .eq('is_wod', true)
-          .eq('scheduled_date', formattedDate)
-          .limit(1);
-
-        if (error) throw error;
-        setWodWorkout(data?.[0] || null);
-        setExercises(data?.[0]?.workout_exercises || []);
-        await checkCompletion(data?.[0]);
+        const data = await storage.workouts.getWOD(formattedDate);
+        setWodWorkout(data);
+        setExercises(data?.workout_exercises || []);
+        await checkCompletion(data);
       } catch (error) {
         console.error('Error fetching WOD:', error);
       } finally {
@@ -61,27 +46,15 @@ export default function Dashboard() {
     }
 
     fetchWOD();
-  }, [selectedDate, refreshKey]); // Trigger refetch when refreshKey changes
+  }, [selectedDate, refreshKey]);
 
   const checkCompletion = async (workout: Workout | null) => {
     if (!workout?.id || !user) return;
     try {
-      const { data, error } = await supabase
-        .from('workout_logs')
-        .select('*')
-        .eq('workout_id', workout.id)
-        .eq('user_id', user.id)
-        .order('completed_at', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error('Error checking workout completion:', error);
-        return;
-      }
-
-      if (data && data.length > 0) {
+      const log = await storage.workoutLogs.getLatestByWorkout(workout.id, user.id);
+      if (log) {
         setIsCompleted(true);
-        setPreviousLogs(data);
+        setPreviousLogs([log]);
       } else {
         setIsCompleted(false);
         setPreviousLogs([]);
@@ -93,7 +66,7 @@ export default function Dashboard() {
 
   const handleWorkoutComplete = (completed: CompletedExercise[]) => {
     setCompletedExercises(completed);
-    setRefreshKey(prevKey => prevKey + 1); // Trigger re-fetch by updating refreshKey
+    setRefreshKey(prevKey => prevKey + 1);
   };
 
   const handleStartWorkout = () => {
@@ -102,7 +75,7 @@ export default function Dashboard() {
 
   const handleViewWorkout = () => {
     setIsLogging(true);
-    setRefreshKey(prev => prev + 1); // Trigger re-fetch by updating refreshKey
+    setRefreshKey(prev => prev + 1);
   };
 
   const handleClose = () => {
@@ -111,7 +84,6 @@ export default function Dashboard() {
 
   const handleWorkoutLoggerClose = () => {
     setIsLogging(false);
-    // Force refresh of weekly exercises when workout logger closes
     setRefreshKey(prev => prev + 1);
   };
 
@@ -151,7 +123,7 @@ export default function Dashboard() {
                     <div className="flex items-center">
                       <Dumbbell className="h-5 w-5 text-indigo-600 mr-3" />
                       <div>
-                        <p className="font-medium dark:text-gray-100">{exercise.exercise.name}</p>
+                        <p className="font-medium dark:text-gray-100">{exercise.exercise?.name}</p>
                       </div>
                     </div>
                   </div>
@@ -182,11 +154,9 @@ export default function Dashboard() {
               <p>No workout scheduled for today.</p>
             </div>
           )}
-          {/* Pass the handler to RecentWorkouts */}
           <RecentWorkouts key={refreshKey} onWorkoutComplete={handleWorkoutComplete} />
         </div>
         <div className="space-y-4">
-          {/* Add key prop to force re-mount when refreshKey changes */}
           <WeeklyExercises key={refreshKey} completedExercises={completedExercises} />
         </div>
       </div>
