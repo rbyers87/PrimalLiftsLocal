@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { format, subDays } from 'date-fns';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import type { WorkoutLog } from '../../types/workout';
 
