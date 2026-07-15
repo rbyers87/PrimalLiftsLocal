@@ -1,5 +1,5 @@
 import { useState } from 'react';
-    import { supabase } from '../lib/supabase';
+    import { storage } from '../../lib/storage';
 
     export function useWorkoutDelete() {
       const [deleting, setDeleting] = useState(false);
