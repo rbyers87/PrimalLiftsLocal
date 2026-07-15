@@ -1,0 +1,15 @@
+name: Install vite-plugin-pwa
+
+on:
+  push:
+    branches: [ main ]  # Or your default branch, e.g., master
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Use a recent Node.js version. The plugin requires Node 16 or above[citation:1][citation:9].
+      - run: npm install -D vite-plugin-pwa
