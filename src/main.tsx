@@ -3,21 +3,25 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Only register service worker in production
-if (import.meta.env.PROD) {
-  // Register service worker manually
+// Function to register service worker
+function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
-        .register('/PrimalLifts/sw.js')
+        .register('/PrimalLiftsLocal/sw.js')
         .then(registration => {
-          console.log('SW registered:', registration);
+          console.log('Service Worker registered successfully:', registration);
         })
         .catch(error => {
-          console.log('SW registration failed:', error);
+          console.log('Service Worker registration failed:', error);
         });
     });
   }
+}
+
+// Only register in production
+if (import.meta.env.PROD) {
+  registerServiceWorker();
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
