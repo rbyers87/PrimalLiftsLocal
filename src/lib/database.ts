@@ -125,7 +125,7 @@ export async function initializeDatabase() {
       // Add default welcome image (placeholder)
       await db.app_settings.add({
         key: 'welcome_image_url',
-        value: '/PrimalLifts/icons/placeholder-welcome.jpg'
+        value: '/PrimalLifts/placeholder-welcome.jpg'
       });
       
       // Add default exercises if none exist
