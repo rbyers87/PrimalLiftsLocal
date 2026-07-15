@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Calendar, Trophy, MessageSquare } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { storage } from '../../lib/storage';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function NotificationSettings() {
@@ -9,26 +9,19 @@ export function NotificationSettings() {
     workout_reminders: true,
     achievement_notifications: true,
     leaderboard_updates: false,
-    message_board_notifications: false, // New setting for message board notifications
+    message_board_notifications: false,
   });
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     async function fetchSettings() {
       if (!user) return;
 
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('user_preferences')
-          .select('notification_settings')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
-
+        const data = await storage.preferences.get(user.id);
         if (data?.notification_settings) {
           setSettings(JSON.parse(data.notification_settings));
         }
@@ -53,20 +46,11 @@ export function NotificationSettings() {
     setMessage('');
 
     try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert(
-          {
-            user_id: user.id,
-            notification_settings: JSON.stringify({
-              ...settings,
-              [setting]: !settings[setting]
-            })
-          },
-          { onConflict: 'user_id' }
-        );
-
-      if (error) throw error;
+      const newSettings = {
+        ...settings,
+        [setting]: !settings[setting]
+      };
+      await storage.preferences.set(user.id, JSON.stringify(newSettings));
       setMessage('Settings updated successfully');
     } catch (error) {
       console.error('Error updating notification settings:', error);
@@ -153,7 +137,6 @@ export function NotificationSettings() {
           </button>
         </div>
         
-        {/* New Message Board Notifications Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <MessageSquare className="h-5 w-5 text-indigo-600" />
