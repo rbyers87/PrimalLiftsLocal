@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-    import { supabase } from '../../lib/supabase';
+    import { storage } from '../../lib/storage';
     import { format } from 'date-fns';
     import { LoadingSpinner } from '../common/LoadingSpinner';
     import type { Workout, WorkoutExercise } from '../../types/workout';
