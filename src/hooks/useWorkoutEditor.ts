@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { storage } from '../../lib/storage';
+import { storage } from '../lib/storage';  // Fixed path
 import { v4 as uuidv4 } from "uuid";
 import type { Workout } from "../types/workout";
 
