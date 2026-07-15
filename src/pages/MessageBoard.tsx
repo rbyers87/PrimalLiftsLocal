@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { storage, getCurrentUser } from '../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { Trash2 } from 'lucide-react';
@@ -10,7 +10,6 @@ interface Message {
   profile_name: string;
   content: string;
   created_at: string;
-  replies?: Message[];
 }
 
 export default function MessageBoard() {
@@ -24,27 +23,8 @@ export default function MessageBoard() {
     async function fetchMessages() {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select(`
-            id,
-            user_id,
-            content,
-            created_at,
-            profiles (
-              profile_name
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const enhancedMessages = data.map(message => ({
-          ...message,
-          profile_name: message.profiles?.profile_name || 'Anonymous',
-        }));
-
-        setMessages(enhancedMessages);
+        const data = await storage.messages.getAll();
+        setMessages(data);
       } catch (error) {
         console.error('Error fetching messages:', error);
         setError('Failed to load messages. Please try again later.');
@@ -52,7 +32,6 @@ export default function MessageBoard() {
         setLoading(false);
       }
     }
-
     fetchMessages();
   }, []);
 
@@ -61,41 +40,15 @@ export default function MessageBoard() {
     if (!newMessage.trim()) return;
 
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            user_id: user.id,
-            content: newMessage,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setMessages(prevMessages => [
-        {
-          ...data,
-          profile_name: user.email, // Use email as profile name for now
-        },
-        ...prevMessages,
-      ]);
-      setNewMessage('');
-
-      // Trigger OneSignal push notification
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        const tags = await OneSignal.getTags();
-        if (tags.message_board_notifications === 'true') {
-          OneSignal.sendTag('message_board_notifications', 'true');
-          OneSignal.push(['sendNotification', {
-            contents: { en: newMessage },
-            headings: { en: `New message from ${user.email}` },
-            included_segments: ["Subscribed Users"]
-          }]);
-        }
+      const profile = await storage.profile.get();
+      const message = await storage.messages.add({
+        user_id: user.id,
+        content: newMessage,
+        profile_name: profile?.profile_name || user.email || 'Anonymous'
       });
+
+      setMessages(prevMessages => [message, ...prevMessages]);
+      setNewMessage('');
     } catch (error) {
       console.error('Error posting message:', error);
       setError('Failed to post message. Please try again.');
@@ -104,13 +57,7 @@ export default function MessageBoard() {
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', messageId);
-
-      if (error) throw error;
-
+      await storage.messages.delete(messageId);
       setMessages(prevMessages =>
         prevMessages.filter(message => message.id !== messageId)
       );
