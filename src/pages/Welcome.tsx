@@ -39,7 +39,7 @@ export default function Welcome() {
           style={{ maxWidth: '90%', height: 'auto' }}
           onError={(e) => {
             // Fallback to placeholder if image fails to load
-            (e.target as HTMLImageElement).src = '/placeholder-welcome.jpg';
+            (e.target as HTMLImageElement).src = '/PrimalLifts/icons/placeholder-welcome.jpg';
           }}
         />
       )}
