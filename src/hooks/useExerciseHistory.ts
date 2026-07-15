@@ -20,18 +20,21 @@ export function useExerciseHistory(exerciseId: string) {
       if (!user || !exerciseId) return;
 
       try {
-        const { data, error } = await supabase
-          .from('exercise_scores')
-          .select('weight')
-          .eq('user_id', user.id)
-          .eq('exercise_id', exerciseId)
-          .order('weight', { ascending: false })
-          .limit(1);
+        // Get all workout logs for the user
+        const logs = await storage.workoutLogs.getByUser(user.id);
+        let maxWeight = 0;
 
-        if (error) throw error;
+        // Check each log for the exercise
+        for (const log of logs) {
+          const exercises = await storage.workoutLogExercises.getByLog(log.id);
+          const exerciseLog = exercises.find(e => e.exercise_id === exerciseId);
+          
+          if (exerciseLog && exerciseLog.weight > maxWeight) {
+            maxWeight = exerciseLog.weight;
+          }
+        }
 
-        if (data && data.length > 0) {
-          const maxWeight = data[0].weight;
+        if (maxWeight > 0) {
           const percentages = [100, 90, 80, 70, 60, 50].map(percentage => ({
             percentage,
             weight: Math.round((maxWeight * percentage) / 100 * 2) / 2 // Rounds to nearest 0.5
