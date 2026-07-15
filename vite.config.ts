@@ -3,11 +3,8 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/PrimalLifts/',
-  plugins: [
-    react()
-    // Remove VitePWA for now - we'll handle service worker manually
-  ],
+  base: '/PrimalLiftsLocal/',
+  plugins: [react()],
   build: {
     rollupOptions: {
       output: {
