@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { storage } from '../lib/storage';
 
 export default function Welcome() {
-  const [imageUrl, setImageUrl] = useState('/placeholder-welcome.jpg');
+  const [imageUrl, setImageUrl] = useState('/PrimalLifts/icons/placeholder-welcome.jpg');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
