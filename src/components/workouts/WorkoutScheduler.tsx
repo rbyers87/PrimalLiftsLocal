@@ -9,13 +9,19 @@ export function WorkoutScheduler() {
 
   useEffect(() => {
     async function fetchScheduledWorkouts() {
-      const { data } = await supabase
-        .from('workouts')
-        .select('*')
-        .gte('scheduled_date', new Date().toISOString().split('T')[0])
-        .order('scheduled_date');
-      
-      if (data) setScheduledWorkouts(data);
+      try {
+        const allWorkouts = await storage.workouts.getAll();
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Filter workouts that are scheduled for today or later
+        const upcoming = allWorkouts
+          .filter(workout => workout.scheduled_date && workout.scheduled_date >= today)
+          .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+        
+        setScheduledWorkouts(upcoming);
+      } catch (error) {
+        console.error('Error fetching scheduled workouts:', error);
+      }
     }
 
     fetchScheduledWorkouts();
@@ -36,7 +42,7 @@ export function WorkoutScheduler() {
               <div className="flex items-center text-sm text-gray-500">
                 <Calendar className="h-4 w-4 mr-1" />
                 <span>
-                  {new Date(workout.scheduled_date!).toLocaleDateString()}
+                  {workout.scheduled_date ? new Date(workout.scheduled_date).toLocaleDateString() : 'No date set'}
                 </span>
               </div>
             </div>
