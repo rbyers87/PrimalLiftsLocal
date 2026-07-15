@@ -1,6 +1,6 @@
 // sw.js - Custom service worker for Primal Lifts
-const CACHE_NAME = 'primal-lifts-v2';
-const BASE_PATH = '/PrimalLifts/';
+const CACHE_NAME = 'primal-lifts-v3';
+const BASE_PATH = '/PrimalLiftsLocal/';
 
 // Files to cache on install
 const urlsToCache = [
@@ -10,6 +10,7 @@ const urlsToCache = [
   `${BASE_PATH}favicon.ico`,
   `${BASE_PATH}icons/icon-192.png`,
   `${BASE_PATH}icons/icon-512.png`,
+  `${BASE_PATH}icons/android-icon-144x144.png`,
 ];
 
 // Install event - cache core files
@@ -18,10 +19,10 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-      .catch(err => {
-        console.error('Failed to cache files:', err);
+        return cache.addAll(urlsToCache).catch(err => {
+          console.error('Failed to cache some files:', err);
+          // Continue even if some files fail
+        });
       })
   );
   // Force the waiting service worker to become active
@@ -40,10 +41,11 @@ self.addEventListener('activate', event => {
           }
         })
       );
+    }).then(() => {
+      // Claim clients so the service worker takes control immediately
+      return self.clients.claim();
     })
   );
-  // Claim clients so the service worker takes control immediately
-  return self.clients.claim();
 });
 
 // Fetch event - serve from cache, fallback to network
@@ -56,17 +58,11 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Skip requests to supabase or external APIs
-  if (url.hostname.includes('supabase.co')) {
+  // Skip requests to external APIs
+  if (url.hostname.includes('supabase.co') || 
+      url.hostname.includes('googleapis.com') ||
+      url.hostname.includes('gstatic.com')) {
     return;
-  }
-  
-  // Normalize the URL path for caching
-  let pathname = url.pathname;
-  
-  // If the path is empty or just '/', serve the index
-  if (pathname === '/' || pathname === '/PrimalLifts/') {
-    pathname = '/PrimalLifts/index.html';
   }
   
   event.respondWith(
@@ -97,8 +93,10 @@ self.addEventListener('fetch', event => {
           })
           .catch(() => {
             // If offline and not cached, try to serve the index page
-            if (pathname.startsWith('/PrimalLifts/')) {
-              return caches.match('/PrimalLifts/index.html');
+            if (url.pathname.startsWith('/PrimalLiftsLocal/') || 
+                url.pathname === '/' || 
+                url.pathname === '') {
+              return caches.match('/PrimalLiftsLocal/index.html');
             }
             return new Response('Offline - content not available', {
               status: 503,
